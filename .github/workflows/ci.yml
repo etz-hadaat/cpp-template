@@ -8,25 +8,54 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        cpp_standard: [17, 20, 23]
+        include:
+          # Add specific configurations for different OS/compiler combinations
+          - os: ubuntu-latest
+            compiler: gcc
+          - os: windows-latest
+            compiler: msvc
+          - os: macos-latest
+            compiler: clang
+      fail-fast: false
+    
+    runs-on: ${{ matrix.os }}
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install dependencies
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake build-essential
         
-        # Install Apache Arrow
-        sudo apt-get install -y -V ca-certificates lsb-release wget
-        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-        sudo dpkg -i apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-        sudo apt-get update
-        sudo apt-get install -y libarrow-dev
+        # Try to install Apache Arrow (optional)
+        sudo apt-get install -y -V ca-certificates lsb-release wget || true
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb || true
+        sudo dpkg -i apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb || true
+        sudo apt-get update || true
+        sudo apt-get install -y libarrow-dev || true
+    
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Install cmake and build tools (already available on windows-latest)
+        # Apache Arrow installation on Windows is complex, so we skip it for now
+        echo "Using pre-installed build tools on Windows"
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Install cmake (already available on macos-latest)
+        # Try to install Apache Arrow via homebrew (optional)
+        brew install apache-arrow || true
     
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }}
       
     - name: Build
       run: cmake --build build --config Release
