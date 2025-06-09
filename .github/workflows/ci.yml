@@ -29,32 +29,28 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake build-essential
         
-        # Try to install Apache Arrow (optional, with simpler approach)
-        sudo apt-get install -y libarrow-dev || echo "Arrow not available via apt, continuing without it"
+        # Try to install Apache Arrow (optional, with timeout)
+        timeout 300 sudo apt-get install -y libarrow-dev || true
     
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
+      shell: cmd
       run: |
-        # CMake and MSVC are pre-installed on windows-latest
-        # Apache Arrow installation on Windows is complex and optional for this template
-        echo "Using pre-installed MSVC and CMake on Windows"
+        echo Using pre-installed MSVC and CMake on Windows
     
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: |
         # CMake and Clang are pre-installed on macos-latest
-        # Try to install Apache Arrow via homebrew (optional)
-        brew install apache-arrow || echo "Arrow not available via brew, continuing without it"
+        # Try to install Apache Arrow via homebrew (optional, with timeout)
+        timeout 300 brew install apache-arrow || true
     
     - name: Configure CMake
-      run: |
-        echo "Configuring with C++${{ matrix.cpp_standard }}"
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }}
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }}
       
     - name: Build
       run: cmake --build build --config Release
       
     - name: Test
-      run: |
-        cd build
-        ctest --output-on-failure
+      working-directory: build
+      run: ctest --output-on-failure
