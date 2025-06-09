@@ -12,14 +12,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         cpp_standard: [17, 20, 23]
-        include:
-          # Add specific configurations for different OS/compiler combinations
-          - os: ubuntu-latest
-            compiler: gcc
+        exclude:
+          # C++23 is not yet fully supported on Windows MSVC in CI
           - os: windows-latest
-            compiler: msvc
-          - os: macos-latest
-            compiler: clang
+            cpp_standard: 23
       fail-fast: false
     
     runs-on: ${{ matrix.os }}
@@ -33,29 +29,27 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake build-essential
         
-        # Try to install Apache Arrow (optional)
-        sudo apt-get install -y -V ca-certificates lsb-release wget || true
-        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb || true
-        sudo dpkg -i apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb || true
-        sudo apt-get update || true
-        sudo apt-get install -y libarrow-dev || true
+        # Try to install Apache Arrow (optional, with simpler approach)
+        sudo apt-get install -y libarrow-dev || echo "Arrow not available via apt, continuing without it"
     
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        # Install cmake and build tools (already available on windows-latest)
-        # Apache Arrow installation on Windows is complex, so we skip it for now
-        echo "Using pre-installed build tools on Windows"
+        # CMake and MSVC are pre-installed on windows-latest
+        # Apache Arrow installation on Windows is complex and optional for this template
+        echo "Using pre-installed MSVC and CMake on Windows"
     
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        # Install cmake (already available on macos-latest)
+        # CMake and Clang are pre-installed on macos-latest
         # Try to install Apache Arrow via homebrew (optional)
-        brew install apache-arrow || true
+        brew install apache-arrow || echo "Arrow not available via brew, continuing without it"
     
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }}
+      run: |
+        echo "Configuring with C++${{ matrix.cpp_standard }}"
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }}
       
     - name: Build
       run: cmake --build build --config Release
